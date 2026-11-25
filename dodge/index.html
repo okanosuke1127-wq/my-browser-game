@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
 <title>隕石よけサバイバル</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,16 +15,20 @@
     color: #f2f2f5;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
     touch-action: none;
+    overscroll-behavior: none;
   }
-  canvas { display: block; width: 100vw; height: 100vh; }
+  canvas { display: block; position: fixed; top: 0; left: 0; }
 
   #hud {
     position: fixed;
     top: 0; left: 0; right: 0;
     display: flex;
     justify-content: space-between;
-    padding: 12px 20px;
+    gap: 8px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
     font-size: 18px;
     font-weight: 600;
     pointer-events: none;
@@ -60,6 +64,8 @@
   }
   .overlay button:hover { filter: brightness(1.1); }
   .new-best { color: #06d6a0; font-weight: 700; }
+  .back { color: #9a9cab; font-size: 15px; padding: 8px; }
+  @media (max-width: 480px) { #hud { font-size: 15px; } }
 </style>
 </head>
 <body>
@@ -76,11 +82,12 @@
   <h1>🌌 隕石よけサバイバル</h1>
   <p>
     降ってくる隕石をよけて、できるだけ長く生き残ろう！<br>
-    操作：← → キー（A / D でも可）<br>
-    スマホ・マウス：画面をタッチ／クリックしたまま左右に動かす<br>
+    📱 スマホ：画面のどこでも指を置いて、左右にスライド<br>
+    ⌨️ PC：← → キー（A / D）か、クリックしたまま左右に動かす<br>
     🛡️ 青いアイテムを取るとシールドで1回だけ耐えられます。
   </p>
   <button id="start-btn">スタート</button>
+  <a class="back" href="../">← ゲーム一覧へ</a>
 </div>
 
 <div id="result" class="overlay" hidden>
@@ -88,7 +95,8 @@
   <div class="big"><span id="final">0.0</span> 秒</div>
   <p id="new-best" class="new-best" hidden>🏆 ベスト更新！</p>
   <p>ベスト: <b id="best-result">0.0</b> 秒</p>
-  <button id="retry-btn">もう一回（Space）</button>
+  <button id="retry-btn">もう一回</button>
+  <a class="back" href="../">← ゲーム一覧へ</a>
 </div>
 
 <script>
@@ -105,9 +113,19 @@
     H = window.innerHeight;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
+    // スマホのアドレスバーの出入りでズレないよう、表示サイズも実寸で合わせる
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (state) state.player.y = H - 60;
+    if (state) {
+      state.player.y = playerY();
+      state.player.x = Math.min(state.player.x, W - state.player.r);
+    }
   }
+  // 画面下の余白（iPhoneのホームバー分）を少し空けて自機を置く
+  const playerY = () => H - 70;
+  // 画面幅に応じて隕石の量を調整（スマホの細い画面で混みすぎないように）
+  const widthFactor = () => Math.min(1.5, Math.max(0.5, W / 800));
   window.addEventListener('resize', resize);
 
   // ----- ベストスコア -----
@@ -172,7 +190,7 @@
     state = {
       running: true,
       time: 0,
-      player: { x: W / 2, y: H - 60, r: 16, speed: 440 },
+      player: { x: W / 2, y: playerY(), r: 16, speed: Math.max(320, Math.min(520, W * 0.6)) },
       meteors: [],
       items: [],
       particles: [],
@@ -235,7 +253,7 @@
     s.spawnTimer -= dt;
     if (s.spawnTimer <= 0) {
       s.meteors.push(makeMeteor(d));
-      s.spawnTimer = d.spawnInterval * (0.6 + Math.random() * 0.8);
+      s.spawnTimer = d.spawnInterval / widthFactor() * (0.6 + Math.random() * 0.8);
     }
 
     // シールドアイテムの出現
