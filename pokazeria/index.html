@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#34c759">
+<title>ポカゼリア</title>
+<style>
+  :root {
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --sub: #6e6e73;
+    --line: #d1d1d6;
+    --green: #34c759;
+    --blue: #007aff;
+    --red: #ff3b30;
+    --btn: rgba(120,120,128,.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --text: #f2f2f7;
+      --sub: #98989f;
+      --line: #38383a;
+      --btn: rgba(120,120,128,.28);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: -apple-system, system-ui, "Hiragino Sans", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+  /* ----- ナビゲーションバー ----- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+    background: var(--green);
+    color: #fff;
+  }
+  header a { color: #fff; text-decoration: none; font-size: 15px; padding: 6px; opacity: .9; }
+  header h1 { flex: 1; font-size: 17px; text-align: center; }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    font-size: 20px;
+    color: #fff;
+  }
+  .icon-btn:active { background: rgba(255,255,255,.2); }
+  .icon-btn svg { width: 24px; height: 24px; }
+
+  /* ----- ユーザーカード ----- */
+  main {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    gap: 12px;
+  }
+  .empty { text-align: center; color: var(--sub); padding: 48px 0; line-height: 1.8; }
+  .card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 84px 1fr 84px;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+  }
+  .who { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+  .avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 44px;
+    background: var(--btn);
+  }
+  .name {
+    font-weight: 600;
+    font-size: 15px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .wines { height: 28px; font-size: 24px; letter-spacing: 6px; }
+  .stock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stepper { display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 14px; }
+  .round {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+  .round:active { filter: brightness(.85); }
+  .fold {
+    width: 100%;
+    height: 50px;
+    border-radius: 12px;
+    background: var(--btn);
+    font-weight: 600;
+    font-size: 17px;
+    color: var(--blue);
+  }
+  .fold:active { filter: brightness(.9); }
+  .del {
+    position: absolute;
+    top: -10px;
+    right: -6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    border: 2px solid var(--card);
+    display: grid;
+    place-items: center;
+  }
+
+  /* ----- シート（ユーザー追加） ----- */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0,0,0,.4);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet {
+    width: 100%;
+    max-width: 520px;
+    max-height: 92dvh;
+    overflow-y: auto;
+    background: var(--bg);
+    border-radius: 16px 16px 0 0;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    animation: up .25s ease-out;
+  }
+  @keyframes up { from { transform: translateY(100%); } }
+  .sheet-head { display: flex; align-items: center; margin-bottom: 16px; }
+  .sheet-head h2 { flex: 1; text-align: center; font-size: 17px; }
+  .sheet-head button { color: var(--blue); font-size: 17px; padding: 6px; min-width: 64px; text-align: left; }
+  .sheet-head .spacer { min-width: 64px; }
+  .section-title { font-size: 13px; color: var(--sub); margin: 0 4px 6px; }
+  .group { background: var(--card); border-radius: 12px; padding: 12px; margin-bottom: 20px; }
+  .avatars {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 2px 10px;
+    scroll-snap-type: x proximity;
+  }
+  .avatars button {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    font-size: 38px;
+    background: var(--btn);
+    border: 3px solid transparent;
+    scroll-snap-align: start;
+  }
+  .avatars button[aria-pressed="true"] { border-color: var(--blue); }
+  .group input {
+    width: 100%;
+    padding: 10px 4px;
+    font-size: 17px;          /* 16px 以上で iOS の自動ズームを防ぐ */
+    border: none;
+    border-top: 1px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    outline: none;
+  }
+  .error { color: var(--red); font-size: 13px; padding: 4px; }
+  .submit {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--blue);
+    font-size: 17px;
+  }
+  .submit:active { filter: brightness(.95); }
+
+  /* ----- アラート ----- */
+  .alert-wrap { align-items: center; padding: 24px; }
+  .alert {
+    width: 270px;
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+    text-align: center;
+    animation: pop .18s ease-out;
+  }
+  @keyframes pop { from { transform: scale(1.1); opacity: 0; } }
+  .alert-body { padding: 18px 16px; }
+  .alert-body h3 { font-size: 17px; margin-bottom: 4px; }
+  .alert-body p { font-size: 13px; line-height: 1.5; }
+  .alert-actions { display: flex; border-top: 1px solid var(--line); }
+  .alert-actions button {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 17px;
+    color: var(--blue);
+  }
+  .alert-actions button + button { border-left: 1px solid var(--line); }
+  .alert-actions .destructive { color: var(--red); }
+  .alert-actions .cancel { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="../" aria-label="ゲーム一覧へ">‹ 一覧</a>
+  <h1>ポカゼリア</h1>
+  <button class="icon-btn" id="delete-mode" aria-label="削除モード"></button>
+  <button class="icon-btn" id="add-btn" aria-label="ユーザー追加">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><path d="M19 8v6M16 11h6"/>
+    </svg>
+  </button>
+</header>
+
+<main id="list"></main>
+
+<!-- ユーザー追加シート -->
+<div class="backdrop" id="add-sheet" hidden>
+  <form class="sheet" id="add-form" autocomplete="off">
+    <div class="sheet-head">
+      <button type="button" id="add-cancel">キャンセル</button>
+      <h2>ユーザー追加</h2>
+      <span class="spacer"></span>
+    </div>
+    <div class="section-title">プロフィール</div>
+    <div class="group">
+      <div class="avatars" id="avatars"></div>
+      <input id="name-input" type="text" placeholder="名前" maxlength="20" enterkeyhint="done">
+      <div class="error" id="name-error" hidden></div>
+    </div>
+    <button type="submit" class="submit">登録</button>
+  </form>
+</div>
+
+<!-- 汎用アラート -->
+<div class="backdrop alert-wrap" id="alert" hidden>
+  <div class="alert" role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
+    <div class="alert-body">
+      <h3 id="alert-title"></h3>
+      <p id="alert-message"></p>
+    </div>
+    <div class="alert-actions" id="alert-actions"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'pokazeria.users';
+  const FOLD_LIMIT = 3;
+
+  // Swift版の画像名 → 絵文字
+  const AVATARS = {
+    animal_mark01_buta:    '🐷',
+    animal_mark02_kuma:    '🐻',
+    animal_mark03_inu:     '🐶',
+    animal_mark04_neko:    '🐱',
+    animal_mark05_zou:     '🐘',
+    animal_mark07_lion:    '🦁',
+    animal_mark08_kaba:    '🦛',
+    animal_mark09_tora:    '🐯',
+    animal_mark10_usagi:   '🐰',
+    animal_mark11_panda:   '🐼',
+    animal_mark13_penguin: '🐧',
+    animal_mark14_hitsuji: '🐑',
+    animal_mark15_koala:   '🐨',
+    animal_mark16_risu:    '🐿️',
+  };
+  const DEFAULT_USERS = [
+    { id: 'animal_mark15_koala', name: 'グリーン', photoURL: 'animal_mark15_koala', foldCount: 0, stock: 0 },
+    { id: 'default-red',         name: 'レッド',   photoURL: 'animal_mark16_risu',  foldCount: 0, stock: 0 },
+  ];
+
+  const $ = id => document.getElementById(id);
+  let users = loadUsers();
+  let deleteMode = false;
+  let selectedAvatar = null;
+
+  // ===== 保存（Swift版の users.json の代わりに localStorage） =====
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return DEFAULT_USERS.map(u => ({ ...u }));
+  }
+  function saveUsers() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(users)); } catch {}
+  }
+  const newId = () =>
+    (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+  // ===== 一覧 =====
+  function render() {
+    const list = $('list');
+    list.innerHTML = '';
+    if (users.length === 0) {
+      list.innerHTML = '<p class="empty">ユーザーがいません。<br>右上のボタンから追加してください。</p>';
+    }
+    for (const user of users) list.appendChild(cardFor(user));
+
+    $('delete-mode').innerHTML = deleteMode
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
+    $('delete-mode').setAttribute('aria-label', deleteMode ? '削除モードを終了' : '削除モード');
+  }
+
+  function cardFor(user) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    // 左：アバターと名前
+    const who = document.createElement('div');
+    who.className = 'who';
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = AVATARS[user.photoURL] || '👤';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = user.name;
+    who.append(avatar, name);
+
+    // 中央：ワイン・ストック
+    const mid = document.createElement('div');
+    mid.className = 'mid';
+    const wines = document.createElement('div');
+    wines.className = 'wines';
+    wines.textContent = '🍷'.repeat(user.foldCount);
+    wines.setAttribute('aria-label', `Fold ${user.foldCount} 回`);
+    const stock = document.createElement('div');
+    stock.className = 'stock';
+    stock.textContent = user.stock;
+    const stepper = document.createElement('div');
+    stepper.className = 'stepper';
+    const minus = roundBtn('−', 'ストックを減らす', () => { user.stock -= 1; commit(); });
+    const label = document.createElement('span');
+    label.textContent = 'ストック';
+    const plus = roundBtn('+', 'ストックを増やす', () => { user.stock += 1; commit(); });
+    stepper.append(minus, label, plus);
+    mid.append(wines, stock, stepper);
+
+    // 右：Fold
+    const fold = document.createElement('button');
+    fold.className = 'fold';
+    fold.textContent = 'Fold';
+    fold.addEventListener('click', () => onFold(user));
+
+    card.append(who, mid, fold);
+
+    if (deleteMode) {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.setAttribute('aria-label', `${user.name} を削除`);
+      del.addEventListener('click', () => confirmDelete(user));
+      card.appendChild(del);
+    }
+    return card;
+  }
+
+  function roundBtn(text, label, onClick) {
+    const b = document.createElement('button');
+    b.className = 'round';
+    b.textContent = text;
+    b.setAttribute('aria-label', label);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function commit() { saveUsers(); render(); }
+
+  // ===== Fold：3回たまったら確認 =====
+  function onFold(user) {
+    user.foldCount += 1;
+    commit();
+    if (user.foldCount === FOLD_LIMIT) {
+      showAlert('確認', '本当に飲みましたか？', [
+        { text: '飲んでません‥', style: 'cancel', onClick: () => { user.foldCount = FOLD_LIMIT - 1; commit(); } },
+        { text: '飲んだ', style: 'destructive', onClick: () => { user.foldCount = 0; commit(); } },
+      ]);
+    }
+  }
+
+  function confirmDelete(user) {
+    showAlert('ユーザー削除', `「${user.name}」を削除しますか？`, [
+      { text: 'キャンセル', style: 'cancel' },
+      { text: '削除', style: 'destructive', onClick: () => {
+        users = users.filter(u => u.id !== user.id);
+        commit();
+      } },
+    ]);
+  }
+
+  // ===== アラート =====
+  function showAlert(title, message, actions) {
+    $('alert-title').textContent = title;
+    $('alert-message').textContent = message;
+    const wrap = $('alert-actions');
+    wrap.innerHTML = '';
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.textContent = a.text;
+      if (a.style) b.className = a.style;
+      b.addEventListener('click', () => {
+        $('alert').hidden = true;
+        if (a.onClick) a.onClick();
+      });
+      wrap.appendChild(b);
+    }
+    $('alert').hidden = false;
+  }
+
+  // ===== ユーザー追加 =====
+  function openAddSheet() {
+    selectedAvatar = null;
+    $('name-input').value = '';
+    setNameError('');
+    renderAvatars();
+    $('add-sheet').hidden = false;
+  }
+  function closeAddSheet() { $('add-sheet').hidden = true; }
+
+  function renderAvatars() {
+    const box = $('avatars');
+    box.innerHTML = '';
+    for (const [key, emoji] of Object.entries(AVATARS)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = emoji;
+      b.setAttribute('aria-pressed', String(selectedAvatar === key));
+      b.addEventListener('click', () => {
+        selectedAvatar = key;
+        box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      });
+      box.appendChild(b);
+    }
+  }
+
+  function setNameError(msg) {
+    $('name-error').textContent = msg;
+    $('name-error').hidden = !msg;
+  }
+
+  function createUser(e) {
+    e.preventDefault();
+    const name = $('name-input').value;
+    if (name.trim() === '') { setNameError('名前を入力してください。'); return; }
+    if (users.some(u => u.name === name)) { setNameError('その名前は既に使用されています。'); return; }
+
+    users.push({ id: newId(), name, photoURL: selectedAvatar, foldCount: 0, stock: 0 });
+    commit();
+    closeAddSheet();
+  }
+
+  // ===== イベント =====
+  $('delete-mode').addEventListener('click', () => { deleteMode = !deleteMode; render(); });
+  $('add-btn').addEventListener('click', openAddSheet);
+  $('add-cancel').addEventListener('click', closeAddSheet);
+  $('add-sheet').addEventListener('click', e => { if (e.target === $('add-sheet')) closeAddSheet(); });
+  $('add-form').addEventListener('submit', createUser);
+  $('name-input').addEventListener('input', () => setNameError(''));
+
+  render();
+})();
+</script>
+</body>
+</html>
