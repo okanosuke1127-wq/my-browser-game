@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>妖精キャッチ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+    background: radial-gradient(ellipse at top, #24435a, #11202c 70%);
+    background-color: #11202c;
+    color: #f4f1e8;
+    user-select: none;
+    -webkit-user-select: none;
+    padding: 20px 16px 32px;
+  }
+  main { max-width: 900px; margin: 0 auto; }
+
+  h1 { text-align: center; font-size: clamp(26px, 6vw, 40px); margin-bottom: 16px; }
+
+  /* ----- プレイヤー ----- */
+  #players {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .player {
+    flex: 1;
+    max-width: 320px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.06);
+    border: 2px solid transparent;
+    transition: border-color .2s, background .2s;
+  }
+  .player.active { border-color: #ffd166; background: rgba(255,209,102,.12); }
+  .player .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .player .name { font-weight: 700; font-size: 18px; }
+  .badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.12);
+  }
+  .badge.skip { background: #ef476f; color: #fff; }
+  .badge.forced { background: #f78c6b; color: #11202c; }
+  .hand { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; min-height: 36px; align-items: center; }
+  .hand .none { font-size: 13px; color: #8fa2ad; }
+  .hand-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 2px solid #ddd3b8;
+    background: #fbf8ef;
+    color: #333;
+  }
+  button.hand-card { cursor: pointer; border-color: #ffd166; box-shadow: 0 0 10px rgba(255,209,102,.6); }
+  button.hand-card:hover { filter: brightness(1.05); }
+  button.hand-card:disabled { cursor: default; box-shadow: none; border-color: #ddd3b8; opacity: .55; }
+
+  #message {
+    text-align: center;
+    min-height: 1.6em;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  #sub-actions { text-align: center; min-height: 36px; margin-bottom: 8px; }
+  #sub-actions button {
+    padding: 6px 18px;
+    font: inherit;
+    border-radius: 999px;
+    border: 1px solid #b9c7cf;
+    background: transparent;
+    color: #f4f1e8;
+    cursor: pointer;
+  }
+
+  /* ----- 山札 ----- */
+  #piles {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .pile {
+    position: relative;
+    width: 96px;
+    height: 160px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+  }
+  .pile:disabled { cursor: default; }
+  .pile:disabled .stack { opacity: .55; }
+  .pile .stack {
+    position: absolute;
+    left: 0; right: 0; bottom: 40px;
+    height: 112px;
+    transition: transform .15s;
+  }
+  .pile:not(:disabled):hover .stack { transform: translateY(-6px); }
+  .pile.target .stack { outline: 3px solid #f78c6b; outline-offset: 4px; border-radius: 12px; }
+  .pile .card-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 6px, transparent 6px 12px),
+      #6b4f9e;
+    border: 2px solid #e8dcff;
+    box-shadow: 0 2px 4px rgba(0,0,0,.35);
+  }
+  .pile .empty {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    border: 2px dashed rgba(255,255,255,.25);
+  }
+  .pile .label {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #b9c7cf;
+  }
+  .pile .label b { color: #f4f1e8; }
+
+  /* ----- めくったカード・ログ ----- */
+  #bottom {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .slot { text-align: center; font-size: 13px; color: #b9c7cf; }
+  .slot .title { margin-bottom: 6px; }
+  .card {
+    width: 96px;
+    height: 120px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 44px;
+    background: #fbf8ef;
+    color: #333;
+    border: 2px solid #ddd3b8;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  .card small { font-size: 12px; font-weight: 600; }
+  .card.placeholder { background: none; border: 2px dashed rgba(255,255,255,.2); box-shadow: none; }
+  .card.fairy { background: #fff6c9; border-color: #ffd166; box-shadow: 0 0 24px rgba(255,209,102,.8); }
+  .card.wolf  { background: #3a1f24; color: #fff; border-color: #ef476f; box-shadow: 0 0 20px rgba(239,71,111,.7); }
+  .card.flip  { animation: flip .35s ease-out; }
+  @keyframes flip {
+    0%   { transform: rotateY(90deg) translateY(-20px); }
+    100% { transform: rotateY(0) translateY(0); }
+  }
+  #grave-count { font-size: 28px; font-weight: 700; color: #f4f1e8; }
+  #log {
+    list-style: none;
+    width: min(100%, 360px);
+    font-size: 13px;
+    color: #b9c7cf;
+    text-align: left;
+    line-height: 1.6;
+  }
+  #log li:first-child { color: #f4f1e8; }
+
+  /* ----- オーバーレイ ----- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(10,20,28,.92);
+    z-index: 10;
+    overflow-y: auto;
+  }
+  .overlay h2 { font-size: clamp(24px, 6vw, 38px); }
+  .overlay p { color: #b9c7cf; line-height: 1.8; max-width: 32em; }
+  .overlay .big { font-size: 72px; }
+  .rules {
+    text-align: left;
+    color: #d7e0e5;
+    line-height: 1.8;
+    max-width: 32em;
+    font-size: 15px;
+    list-style: none;
+  }
+  .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  button.main {
+    padding: 14px 32px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #11202c;
+    background: #ffd166;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  button.main.alt { background: #b9c7cf; }
+  button.main:hover { filter: brightness(1.08); }
+  .peek-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .peek-row .card { width: 72px; height: 92px; font-size: 32px; }
+  .peek-row .pos { font-size: 12px; color: #b9c7cf; margin-top: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🧚 妖精キャッチ</h1>
+
+  <div id="players">
+    <div class="player" id="p0">
+      <div class="head"><span class="name"></span><span class="badges"></span></div>
+      <div class="hand"></div>
+    </div>
+    <div class="player" id="p1">
+      <div class="head"><span class="name"></span><span class="badges"></span></div>
+      <div class="hand"></div>
+    </div>
+  </div>
+
+  <div id="message"></div>
+  <div id="sub-actions"></div>
+
+  <div id="piles"></div>
+
+  <div id="bottom">
+    <div class="slot">
+      <div class="title">めくったカード</div>
+      <div class="card placeholder" id="last-card"></div>
+    </div>
+    <div class="slot">
+      <div class="title">墓地</div>
+      <div id="grave-count">0</div>
+      <div>枚</div>
+    </div>
+    <ul id="log"></ul>
+  </div>
+</main>
+
+<div id="start" class="overlay">
+  <h2>🧚 妖精キャッチ</h2>
+  <ul class="rules">
+    <li>5枚の山札が5つ。交代で好きな山札の一番上をめくります。</li>
+    <li>🧚 <b>妖精</b>：引いたら勝ち。どれかの山札の一番下にあります。</li>
+    <li>🐺 <b>狼</b>（2枚）：引いたら次の番は休み。</li>
+    <li>🔭 <b>双眼鏡</b>（2枚）：引いたら、好きな山札の中身をすべて見られます。</li>
+    <li>👟 <b>靴</b>（2枚）：手札に加わります。使うとその番は2枚めくれます。</li>
+    <li>👉 <b>指差し</b>（2枚）：手札に加わります。使うと、相手が次の番にめくる山札を指定できます。</li>
+    <li>手札のカードは、その番でめくる前に使えます。</li>
+  </ul>
+  <div class="buttons">
+    <button class="main" data-mode="pvp">2人で対戦</button>
+    <button class="main alt" data-mode="cpu">CPUと対戦</button>
+  </div>
+</div>
+
+<div id="peek" class="overlay" hidden>
+  <h2 id="peek-title"></h2>
+  <div id="peek-gate">
+    <p id="peek-gate-text"></p>
+    <button class="main" id="peek-show">見る</button>
+  </div>
+  <div id="peek-body" hidden>
+    <div class="peek-row" id="peek-cards"></div>
+    <p>左が一番上、右が一番下です。</p>
+    <button class="main" id="peek-close">閉じる</button>
+  </div>
+</div>
+
+<div id="result" class="overlay" hidden>
+  <div class="big">🧚</div>
+  <h2 id="result-title"></h2>
+  <p id="result-detail"></p>
+  <div class="buttons">
+    <button class="main" id="retry-btn">もう一回</button>
+    <button class="main alt" id="menu-btn">モード選択へ</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const PILE_COUNT = 5;
+  const PILE_SIZE = 5;
+  const FAIRY = 'fairy', WOLF = 'wolf', SHOE = 'shoe', BINOC = 'binoculars',
+        POINTER = 'pointer', BLANK = 'blank';
+  const CARD_INFO = {
+    fairy:      { icon: '🧚', name: '妖精' },
+    wolf:       { icon: '🐺', name: '狼' },
+    shoe:       { icon: '👟', name: '靴' },
+    binoculars: { icon: '🔭', name: '双眼鏡' },
+    pointer:    { icon: '👉', name: '指差し' },
+    blank:      { icon: '',   name: '白' },
+  };
+  const SPECIAL_COUNTS = { wolf: 2, shoe: 2, binoculars: 2, pointer: 2 };
+  const CPU_DELAY = 900;
+
+  const $ = id => document.getElementById(id);
+  let g = null;      // ゲーム状態
+  let mode = 'pvp';
+
+  // ===== 山札の準備 =====
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function setupPiles() {
+    // 妖精以外のカード：特殊カード8枚 ＋ 残りを白で埋める（5×5−1−8＝16枚）
+    const others = [];
+    for (const [type, n] of Object.entries(SPECIAL_COUNTS)) {
+      for (let i = 0; i < n; i++) others.push(type);
+    }
+    while (others.length < PILE_COUNT * PILE_SIZE - 1) others.push(BLANK);
+    shuffle(others);
+
+    // piles[i][0] が一番上、末尾が一番下
+    const fairyPile = Math.floor(Math.random() * PILE_COUNT);
+    const piles = [];
+    for (let p = 0; p < PILE_COUNT; p++) {
+      const pile = [];
+      for (let k = 0; k < PILE_SIZE; k++) {
+        pile.push(p === fairyPile && k === PILE_SIZE - 1 ? FAIRY : others.pop());
+      }
+      piles.push(pile);
+    }
+    return piles;
+  }
+
+  // ===== ゲーム進行 =====
+  function newGame(m) {
+    mode = m;
+    g = {
+      piles: setupPiles(),
+      turn: Math.random() < 0.5 ? 0 : 1,
+      names: mode === 'cpu' ? ['あなた', 'CPU'] : ['プレイヤー1', 'プレイヤー2'],
+      hands: [[], []],
+      skip: [false, false],     // 次の番が休みか
+      forced: [null, null],     // 次の番にめくる山札の指定
+      grave: 0,
+      phase: 'busy',            // action / pointing / peekChoose / busy / over
+      drawsLeft: 0,
+      drawnThisTurn: 0,
+      used: {},
+      cpuKnown: new Set(),      // CPUが双眼鏡で中身を見た山札
+      log: [],
+    };
+    $('start').hidden = true;
+    $('result').hidden = true;
+    const last = $('last-card');
+    last.className = 'card placeholder';
+    last.innerHTML = '';
+    addLog(`${g.names[g.turn]} の先攻です`);
+    startTurn();
+  }
+
+  const isCpu = p => mode === 'cpu' && p === 1;
+  const other = p => 1 - p;
+
+  function startTurn() {
+    const p = g.turn;
+    if (g.skip[p]) {
+      g.skip[p] = false;
+      g.phase = 'busy';
+      addLog(`${g.names[p]} は狼のせいで休み`);
+      setMessage(`🐺 ${g.names[p]} は休み…`);
+      render();
+      setTimeout(() => { g.turn = other(p); startTurn(); }, 1200);
+      return;
+    }
+    g.drawsLeft = 1;
+    g.drawnThisTurn = 0;
+    g.used = {};
+    if (g.forced[p] !== null && g.piles[g.forced[p]].length === 0) g.forced[p] = null;
+    g.phase = 'action';
+    promptAction();
+  }
+
+  function promptAction() {
+    const p = g.turn;
+    const forced = currentForced();
+    let msg = `${g.names[p]} の番：`;
+    if (forced !== null) msg += `山札${forced + 1} からめくってください（指定）`;
+    else if (g.drawnThisTurn > 0) msg += 'もう1枚めくれます';
+    else msg += '山札を選んでめくってください';
+    setMessage(msg);
+    render();
+    if (isCpu(p)) setTimeout(cpuAct, CPU_DELAY);
+  }
+
+  // 指差しの指定は、その番の1枚目にだけ効く
+  function currentForced() {
+    return g.drawnThisTurn === 0 ? g.forced[g.turn] : null;
+  }
+
+  function useCard(type) {
+    const p = g.turn;
+    if (g.phase !== 'action' || g.drawnThisTurn > 0 || g.used[type]) return;
+    const idx = g.hands[p].indexOf(type);
+    if (idx < 0) return;
+    g.hands[p].splice(idx, 1);
+    g.used[type] = true;
+    g.grave++;
+
+    if (type === SHOE) {
+      g.drawsLeft = 2;
+      addLog(`${g.names[p]} は👟靴を使った（2枚めくれる）`);
+      promptAction();
+    } else if (type === POINTER) {
+      g.phase = 'pointing';
+      setMessage(`👉 ${g.names[other(p)]} が次にめくる山札を選んでください`);
+      render();
+    }
+  }
+
+  function cancelPointer() {
+    if (g.phase !== 'pointing') return;
+    g.hands[g.turn].push(POINTER);
+    g.used[POINTER] = false;
+    g.grave--;
+    g.phase = 'action';
+    promptAction();
+  }
+
+  function designate(i) {
+    const p = g.turn;
+    g.forced[other(p)] = i;
+    addLog(`${g.names[p]} は👉指差しで、${g.names[other(p)]} に山札${i + 1} を指定した`);
+    g.phase = 'action';
+    promptAction();
+  }
+
+  function clickPile(i) {
+    if (!pileEnabled(i)) return;
+    if (g.phase === 'pointing') designate(i);
+    else if (g.phase === 'peekChoose') peek(i);
+    else if (g.phase === 'action') drawFrom(i);
+  }
+
+  function pileEnabled(i) {
+    if (!g || g.piles[i].length === 0) return false;
+    if (g.phase === 'pointing' || g.phase === 'peekChoose') return true;
+    if (g.phase !== 'action') return false;
+    const forced = currentForced();
+    return forced === null || forced === i;
+  }
+
+  function drawFrom(i) {
+    const p = g.turn;
+    if (currentForced() !== null) g.forced[p] = null;   // 指定を消費
+    const card = g.piles[i].shift();
+    g.drawnThisTurn++;
+    g.drawsLeft--;
+    showCard(card);
+
+    const name = g.names[p];
+    switch (card) {
+      case FAIRY:
+        g.phase = 'over';
+        addLog(`${name} が山札${i + 1} で🧚妖精をつかまえた！`);
+        setMessage(`🧚 ${name} が妖精をつかまえた！`);
+        render();
+        setTimeout(() => showResult(p), 1000);
+        return;
+      case WOLF:
+        g.grave++;
+        g.skip[p] = true;
+        g.drawsLeft = 0;           // 靴の1枚目でも、2枚目はめくれない
+        addLog(`${name} は山札${i + 1} で🐺狼を引いた（次の番は休み）`);
+        break;
+      case BINOC:
+        g.grave++;
+        addLog(`${name} は山札${i + 1} で🔭双眼鏡を引いた`);
+        g.phase = 'peekChoose';
+        setMessage(`🔭 中身を見たい山札を選んでください`);
+        render();
+        if (isCpu(p)) setTimeout(() => peek(cpuChoosePeek()), CPU_DELAY);
+        return;
+      case SHOE:
+      case POINTER:
+        g.hands[p].push(card);
+        addLog(`${name} は山札${i + 1} で${CARD_INFO[card].icon}${CARD_INFO[card].name}を手に入れた`);
+        break;
+      default:
+        g.grave++;
+        addLog(`${name} は山札${i + 1} で白いカードを引いた`);
+    }
+    afterDraw();
+  }
+
+  function afterDraw() {
+    if (g.drawsLeft > 0) {
+      g.phase = 'action';
+      promptAction();
+    } else {
+      g.phase = 'busy';
+      render();
+      setTimeout(() => { g.turn = other(g.turn); startTurn(); }, 700);
+    }
+  }
+
+  function peek(i) {
+    const p = g.turn;
+    addLog(`${g.names[p]} は山札${i + 1} の中身を確認した`);
+    if (isCpu(p)) {
+      g.cpuKnown.add(i);
+      afterDraw();
+      return;
+    }
+    g.phase = 'busy';
+    render();
+    $('peek-title').textContent = `🔭 山札${i + 1} の中身`;
+    const cards = $('peek-cards');
+    cards.innerHTML = '';
+    g.piles[i].forEach((c, k) => {
+      const wrap = document.createElement('div');
+      wrap.appendChild(cardEl(c));
+      const pos = document.createElement('div');
+      pos.className = 'pos';
+      pos.textContent = k === 0 ? '一番上' : (k === g.piles[i].length - 1 ? '一番下' : `${k + 1}枚目`);
+      wrap.appendChild(pos);
+      cards.appendChild(wrap);
+    });
+    // 2人対戦のときは、相手に見られないよう一度ワンクッション置く
+    const gate = mode === 'pvp';
+    $('peek-gate-text').textContent = `${g.names[p]} だけが画面を見てください`;
+    $('peek-gate').hidden = !gate;
+    $('peek-body').hidden = gate;
+    $('peek').hidden = false;
+  }
+
+  // ===== CPU =====
+  function cpuFairyPile() {
+    for (const i of g.cpuKnown) if (g.piles[i].includes(FAIRY)) return i;
+    return null;
+  }
+  function possiblyFairy(i) {
+    if (g.piles[i].length === 0) return false;
+    const fp = cpuFairyPile();
+    if (fp !== null) return fp === i;
+    return !g.cpuKnown.has(i);
+  }
+  const knownTop = i => (g.cpuKnown.has(i) ? g.piles[i][0] : null);
+  const knownSecond = i => (g.cpuKnown.has(i) ? g.piles[i][1] : null);
+
+  function cpuAct() {
+    if (g.phase !== 'action' || !isCpu(g.turn)) return;
+    const hand = g.hands[1];
+
+    if (g.drawnThisTurn === 0) {
+      // 指差し：相手に狼の山 or 「残り2枚の妖精候補」を押しつける
+      if (hand.includes(POINTER) && !g.used[POINTER]) {
+        const target = cpuPointerTarget();
+        if (target !== null) {
+          useCard(POINTER);
+          setTimeout(() => designate(target), CPU_DELAY);
+          return;
+        }
+      }
+      // 靴：残り2枚の妖精候補を一気に取りにいく
+      if (hand.includes(SHOE) && !g.used[SHOE] && cpuShoeWorth()) {
+        useCard(SHOE);   // promptAction() 経由で再び cpuAct が呼ばれる
+        return;
+      }
+    }
+    drawFrom(cpuChoosePile());
+  }
+
+  function cpuShoeWorth() {
+    const forced = currentForced();
+    return g.piles.some((pile, i) =>
+      (forced === null || forced === i) &&
+      pile.length === 2 && possiblyFairy(i) &&
+      knownTop(i) !== WOLF);
+  }
+
+  function cpuPointerTarget() {
+    const alive = g.piles.map((_, i) => i).filter(i => g.piles[i].length > 0);
+    const wolfTop = alive.find(i => knownTop(i) === WOLF);
+    if (wolfTop !== undefined) return wolfTop;
+    const two = alive.filter(i => g.piles[i].length === 2 && possiblyFairy(i));
+    if (two.length) return two[0];
+    return null;
+  }
+
+  function cpuChoosePile() {
+    const forced = currentForced();
+    if (forced !== null) return forced;
+
+    const alive = g.piles.map((_, i) => i).filter(i => g.piles[i].length > 0);
+    let best = alive[0], bestScore = -Infinity;
+    for (const i of alive) {
+      const len = g.piles[i].length;
+      const top = knownTop(i);
+      let s = Math.random() * 3;
+      if (top === FAIRY) s += 1000;
+      if (top === WOLF) s -= 100;
+      if (top === SHOE || top === POINTER) s += 8;
+      if (top === BINOC) s += 4;
+      if (len === 1 && possiblyFairy(i)) s += 60;
+      if (len === 2 && possiblyFairy(i)) {
+        // 2枚めくれるなら狙い目、1枚なら相手に一番下を渡してしまう
+        s += g.drawsLeft >= 2 ? 50 : -40;
+      }
+      // 次の1枚が狼と分かっている山は、1枚めくると相手に有利になる
+      if (knownSecond(i) === WOLF && g.drawsLeft < 2) s += 2;
+      if (s > bestScore) { bestScore = s; best = i; }
+    }
+    return best;
+  }
+
+  function cpuChoosePeek() {
+    const alive = g.piles.map((_, i) => i).filter(i => g.piles[i].length > 0);
+    const unknown = alive.filter(i => !g.cpuKnown.has(i));
+    const pool = unknown.length ? unknown : alive;
+    pool.sort((a, b) => g.piles[a].length - g.piles[b].length);
+    return pool[0];
+  }
+
+  // ===== 表示 =====
+  function cardEl(type) {
+    const el = document.createElement('div');
+    el.className = 'card ' + type;
+    const info = CARD_INFO[type];
+    el.innerHTML = `<span>${info.icon}</span>${type === BLANK ? '' : `<small>${info.name}</small>`}`;
+    return el;
+  }
+
+  function showCard(type) {
+    const last = $('last-card');
+    const fresh = cardEl(type);
+    fresh.id = 'last-card';
+    fresh.classList.add('flip');
+    last.replaceWith(fresh);
+  }
+
+  function setMessage(t) { $('message').textContent = t; }
+
+  function addLog(t) {
+    g.log.unshift(t);
+    g.log.length = Math.min(g.log.length, 6);
+    const ul = $('log');
+    ul.innerHTML = '';
+    for (const line of g.log) {
+      const li = document.createElement('li');
+      li.textContent = line;
+      ul.appendChild(li);
+    }
+  }
+
+  function render() {
+    const humanTurn = !isCpu(g.turn);
+
+    // 山札
+    const pilesEl = $('piles');
+    pilesEl.innerHTML = '';
+    g.piles.forEach((pile, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'pile';
+      if (g.forced[g.turn] === i && g.drawnThisTurn === 0 && g.phase === 'action') btn.classList.add('target');
+      btn.disabled = !humanTurn || !pileEnabled(i);
+      btn.setAttribute('aria-label', `山札${i + 1}（残り${pile.length}枚）`);
+
+      const stack = document.createElement('div');
+      stack.className = 'stack';
+      if (pile.length === 0) {
+        stack.innerHTML = '<div class="empty"></div>';
+      } else {
+        for (let k = 0; k < pile.length; k++) {
+          const c = document.createElement('div');
+          c.className = 'card-back';
+          const off = pile.length - 1 - k;
+          c.style.transform = `translate(${off * -1.5}px, ${off * 2}px)`;
+          stack.appendChild(c);
+        }
+      }
+      btn.appendChild(stack);
+
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.innerHTML = `<b>山札${i + 1}</b><br>残り ${pile.length} 枚`;
+      btn.appendChild(label);
+
+      btn.addEventListener('click', () => clickPile(i));
+      pilesEl.appendChild(btn);
+    });
+
+    // プレイヤー
+    [0, 1].forEach(n => {
+      const el = $('p' + n);
+      el.classList.toggle('active', g.phase !== 'over' && g.turn === n);
+      el.querySelector('.name').textContent = g.names[n];
+
+      const badges = el.querySelector('.badges');
+      badges.innerHTML = '';
+      if (g.skip[n]) badges.innerHTML += '<span class="badge skip">次の番休み</span>';
+      if (g.forced[n] !== null) badges.innerHTML += `<span class="badge forced">次は山札${g.forced[n] + 1}</span>`;
+
+      const hand = el.querySelector('.hand');
+      hand.innerHTML = '';
+      if (g.hands[n].length === 0) {
+        hand.innerHTML = '<span class="none">手札なし</span>';
+      }
+      const canUse = n === g.turn && !isCpu(n) && g.phase === 'action' && g.drawnThisTurn === 0;
+      g.hands[n].forEach(type => {
+        const info = CARD_INFO[type];
+        const usable = canUse && !g.used[type];
+        const b = document.createElement(usable ? 'button' : 'span');
+        b.className = 'hand-card';
+        b.textContent = `${info.icon} ${info.name}`;
+        if (usable) {
+          b.title = '使う';
+          b.addEventListener('click', () => useCard(type));
+        }
+        hand.appendChild(b);
+      });
+    });
+
+    // 補助ボタン
+    const sub = $('sub-actions');
+    sub.innerHTML = '';
+    if (g.phase === 'pointing' && humanTurn) {
+      const c = document.createElement('button');
+      c.textContent = '指差しをやめる';
+      c.addEventListener('click', cancelPointer);
+      sub.appendChild(c);
+    }
+
+    $('grave-count').textContent = g.grave;
+  }
+
+  function showResult(winner) {
+    $('result-title').textContent = mode === 'cpu'
+      ? (winner === 0 ? 'あなたの勝ち！' : 'あなたの負け…')
+      : `${g.names[winner]} の勝ち！`;
+    $('result-detail').textContent = `${g.names[winner]} が妖精をつかまえました。（墓地 ${g.grave} 枚）`;
+    $('result').hidden = false;
+  }
+
+  // ===== イベント =====
+  document.querySelectorAll('[data-mode]').forEach(b =>
+    b.addEventListener('click', () => newGame(b.dataset.mode)));
+  $('retry-btn').addEventListener('click', () => newGame(mode));
+  $('menu-btn').addEventListener('click', () => {
+    $('result').hidden = true;
+    $('start').hidden = false;
+  });
+  $('peek-show').addEventListener('click', () => {
+    $('peek-gate').hidden = true;
+    $('peek-body').hidden = false;
+  });
+  $('peek-close').addEventListener('click', () => {
+    $('peek').hidden = true;
+    afterDraw();
+  });
+})();
+</script>
+</body>
+</html>
