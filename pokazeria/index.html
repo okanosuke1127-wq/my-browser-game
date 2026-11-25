@@ -213,6 +213,42 @@
   }
   .submit:active { filter: brightness(.95); }
 
+  /* ----- NGワード設定 ----- */
+  .sheet-head .done { text-align: right; font-weight: 600; }
+  .ng-add { display: flex; gap: 8px; align-items: center; }
+  .group .ng-add input, .group .plain-input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 10px 4px;
+    font-size: 17px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    outline: none;
+  }
+  .ng-add-btn {
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .ng-list { list-style: none; }
+  .ng-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 4px;
+    border-top: 1px solid var(--line);
+    font-size: 17px;
+  }
+  .ng-list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .ng-list li button { color: var(--red); font-size: 15px; padding: 4px 8px; }
+  .ng-list .none { color: var(--sub); font-size: 15px; }
+  .note { font-size: 13px; color: var(--sub); line-height: 1.6; margin: -8px 4px 0; }
+
   /* ----- アラート ----- */
   .alert-wrap { align-items: center; padding: 24px; }
   .alert {
@@ -244,6 +280,12 @@
 <header>
   <a href="../" aria-label="ゲーム一覧へ">‹ 一覧</a>
   <h1>ポカゼリア</h1>
+  <button class="icon-btn" id="settings-btn" aria-label="NGワード設定">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+    </svg>
+  </button>
   <button class="icon-btn" id="delete-mode" aria-label="削除モード"></button>
   <button class="icon-btn" id="add-btn" aria-label="ユーザー追加">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -272,6 +314,37 @@
   </form>
 </div>
 
+<!-- NGワード設定シート -->
+<div class="backdrop" id="settings-sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <span class="spacer"></span>
+      <h2>NGワード設定</h2>
+      <button type="button" id="settings-done" class="done">完了</button>
+    </div>
+
+    <div class="section-title">NGワード</div>
+    <div class="group">
+      <form class="ng-add" id="ng-form" autocomplete="off">
+        <input id="ng-input" type="text" placeholder="追加する名前" maxlength="20" enterkeyhint="done">
+        <button type="submit" class="ng-add-btn">追加</button>
+      </form>
+      <div class="error" id="ng-error" hidden></div>
+      <ul class="ng-list" id="ng-list"></ul>
+    </div>
+
+    <div class="section-title">NGワードの名前で登録したときの初期ストック</div>
+    <div class="group">
+      <input id="ng-stock" class="plain-input" type="number" inputmode="numeric" step="1">
+    </div>
+
+    <p class="note">
+      ここに登録した名前でユーザーを追加すると、ストックが上の数から始まります。<br>
+      設定はこの端末のブラウザにだけ保存され、他の人には見えません。
+    </p>
+  </div>
+</div>
+
 <!-- 汎用アラート -->
 <div class="backdrop alert-wrap" id="alert" hidden>
   <div class="alert" role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
@@ -286,7 +359,9 @@
 <script>
 (() => {
   const STORAGE_KEY = 'pokazeria.users';
+  const NG_KEY = 'pokazeria.ngSettings';
   const FOLD_LIMIT = 3;
+  const DEFAULT_NG_STOCK = 999;
 
   // Swift版の画像名 → 絵文字
   const AVATARS = {
@@ -312,6 +387,7 @@
 
   const $ = id => document.getElementById(id);
   let users = loadUsers();
+  let ng = loadNg();
   let deleteMode = false;
   let selectedAvatar = null;
 
@@ -329,6 +405,25 @@
   function saveUsers() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(users)); } catch {}
   }
+  // NGワード設定：{ words: string[], stock: number }
+  function loadNg() {
+    try {
+      const raw = localStorage.getItem(NG_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        return {
+          words: Array.isArray(p.words) ? p.words.filter(w => typeof w === 'string') : [],
+          stock: Number.isFinite(p.stock) ? p.stock : DEFAULT_NG_STOCK,
+        };
+      }
+    } catch {}
+    return { words: [], stock: DEFAULT_NG_STOCK };
+  }
+  function saveNg() {
+    try { localStorage.setItem(NG_KEY, JSON.stringify(ng)); } catch {}
+  }
+  const isNgName = name => ng.words.includes(name.trim());
+
   const newId = () =>
     (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
@@ -489,10 +584,82 @@
     if (name.trim() === '') { setNameError('名前を入力してください。'); return; }
     if (users.some(u => u.name === name)) { setNameError('その名前は既に使用されています。'); return; }
 
-    users.push({ id: newId(), name, photoURL: selectedAvatar, foldCount: 0, stock: 0 });
+    const stock = isNgName(name) ? ng.stock : 0;
+    users.push({ id: newId(), name, photoURL: selectedAvatar, foldCount: 0, stock });
     commit();
     closeAddSheet();
   }
+
+  // ===== NGワード設定 =====
+  function openSettings() {
+    $('ng-input').value = '';
+    setNgError('');
+    $('ng-stock').value = ng.stock;
+    renderNgList();
+    $('settings-sheet').hidden = false;
+  }
+  function closeSettings() {
+    commitNgStock();
+    $('settings-sheet').hidden = true;
+  }
+
+  function renderNgList() {
+    const ul = $('ng-list');
+    ul.innerHTML = '';
+    if (ng.words.length === 0) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="none">まだ登録されていません</span>';
+      ul.appendChild(li);
+      return;
+    }
+    ng.words.forEach((word, i) => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = word;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '削除';
+      del.setAttribute('aria-label', `「${word}」を削除`);
+      del.addEventListener('click', () => {
+        ng.words.splice(i, 1);
+        saveNg();
+        renderNgList();
+      });
+      li.append(span, del);
+      ul.appendChild(li);
+    });
+  }
+
+  function setNgError(msg) {
+    $('ng-error').textContent = msg;
+    $('ng-error').hidden = !msg;
+  }
+
+  function addNgWord(e) {
+    e.preventDefault();
+    const word = $('ng-input').value.trim();
+    if (!word) { setNgError('名前を入力してください。'); return; }
+    if (ng.words.includes(word)) { setNgError('その名前は既に登録されています。'); return; }
+    ng.words.push(word);
+    saveNg();
+    $('ng-input').value = '';
+    setNgError('');
+    renderNgList();
+  }
+
+  function commitNgStock() {
+    const v = parseInt($('ng-stock').value, 10);
+    ng.stock = Number.isFinite(v) ? v : DEFAULT_NG_STOCK;
+    $('ng-stock').value = ng.stock;
+    saveNg();
+  }
+
+  $('settings-btn').addEventListener('click', openSettings);
+  $('settings-done').addEventListener('click', closeSettings);
+  $('settings-sheet').addEventListener('click', e => { if (e.target === $('settings-sheet')) closeSettings(); });
+  $('ng-form').addEventListener('submit', addNgWord);
+  $('ng-input').addEventListener('input', () => setNgError(''));
+  $('ng-stock').addEventListener('change', commitNgStock);
 
   // ===== イベント =====
   $('delete-mode').addEventListener('click', () => { deleteMode = !deleteMode; render(); });
